@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Comercial</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Animaciones y mejoras visuales */
+        .fade-in {
+            animation: fadeIn 0.8s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .card {
+            transition: box-shadow 0.3s, transform 0.3s;
+        }
+        .card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: scale(1.03);
+        }
+        .navbar-brand img, .offcanvas-title img {
+            filter: drop-shadow(0 2px 4px #222);
+        }
+        .offcanvas {
+            transition: transform 0.5s cubic-bezier(.68,-0.55,.27,1.55);
+        }
+        .offcanvas.show {
+            box-shadow: -2px 0 24px rgba(0,0,0,0.3);
+        }
+        .btn-success, .btn-primary {
+            transition: background 0.2s, transform 0.2s;
+        }
+        .btn-success:hover, .btn-primary:hover {
+            transform: scale(1.07);
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark fixed-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="index.html"><img src="logo.png" alt="Origen" height="32"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasDarkNavbar" aria-controls="offcanvasDarkNavbar">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="offcanvasDarkNavbar" aria-labelledby="offcanvasDarkNavbarLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="offcanvasDarkNavbarLabel"><img src="logo.png" alt="Origen" height="32"></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body">
+        <!-- Formulario de gastos -->
+        <form id="formGasto" class="row g-2 mb-3">
+          <div class="col-auto">
+            <input type="date" class="form-control" id="gastoFecha" required>
+          </div>
+          <div class="col">
+            <input type="text" class="form-control" id="gastoDesc" placeholder="Descripción" required>
+          </div>
+          <div class="col-auto">
+            <input type="number" step="0.01" class="form-control" id="gastoMonto" placeholder="Monto" required>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-danger">Registrar Gasto</button>
+          </div>
+        </form>
+        <div class="mb-3">
+          <h6 class="text-white mb-2">Gastos registrados</h6>
+          <ul id="gastosOffcanvas" class="list-group"></ul>
+        </div>
+        <!-- Formulario para agregar venta con fecha pasada -->
+        <div class="mb-3">
+          <h6 class="text-white mb-2">Agregar venta de fecha pasada</h6>
+          <form id="formVentaPasada" class="row g-2">
+            <div class="col-auto">
+              <input type="date" class="form-control" id="ventaPasadaFecha" required>
+            </div>
+            <div class="col">
+              <input type="text" class="form-control" id="ventaPasadaProductos" placeholder="Productos (Ej: Café x2, Tostada x1)" required>
+            </div>
+            <div class="col-auto">
+              <input type="number" step="0.01" class="form-control" id="ventaPasadaTotal" placeholder="Total" required>
+            </div>
+            <div class="col-auto">
+              <select class="form-select" id="ventaPasadaModoPago" required>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Debito">Débito</option>
+                <option value="Credito">Crédito</option>
+                <option value="Mercado Pago">Mercado Pago</option>
+              </select>
+            </div>
+            <div class="col-auto" id="ventaPasadaTarjetaTipoDiv" style="display:none;">
+              <select class="form-select" id="ventaPasadaTarjetaTipo">
+                <option value="Visa">Visa</option>
+                <option value="Mastercard">Mastercard</option>
+                <option value="Cabal">Cabal</option>
+                <option value="Otra">Otra</option>
+              </select>
+            </div>
+            <div class="col-auto" id="ventaPasadaCuotasDiv" style="display:none;">
+              <select class="form-select" id="ventaPasadaCuotas">
+                <option value="1">1 cuota</option>
+                <option value="3">3 cuotas</option>
+                <option value="6">6 cuotas</option>
+                <option value="12">12 cuotas</option>
+              </select>
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-success">Agregar Venta</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+<div class="container fade-in" style="margin-top: 80px;">
+    <h1 class="mb-4 text-center">Dashboard Comercial</h1>
+    <!-- Gráfico de balance -->
+    <div class="mb-4">
+      <h4 class="mb-3 text-center">Balance Ingresos vs Gastos</h4>
+      <div class="d-flex justify-content-center">
+        <canvas id="balanceChart" style="max-width:600px;max-height:300px;"></canvas>
+      </div>
+    </div>
+    <!-- Tabla de ventas por modo de pago -->
+    <div class="mb-4">
+      <h4 class="mb-3 text-center">Ventas por Modo de Pago</h4>
+      <div class="row">
+        <div class="col-md-4">
+          <h6 class="text-center">Día</h6>
+          <div id="tablaVentasModoPago-dia"></div>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-center">Semana</h6>
+          <div id="tablaVentasModoPago-semana"></div>
+        </div>
+        <div class="col-md-4">
+          <h6 class="text-center">Mes</h6>
+          <div id="tablaVentasModoPago-mes"></div>
+        </div>
+      </div>
+    </div>
+    <ul class="nav nav-tabs mb-3" id="dashboardTabs">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-dia">Día</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-semana">Semana</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-mes">Mes</button></li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="tab-dia">
+        <div id="stats-dia"></div>
+      </div>
+      <div class="tab-pane fade" id="tab-semana">
+        <div id="stats-semana"></div>
+      </div>
+      <div class="tab-pane fade" id="tab-mes">
+        <div class="mb-3 d-flex flex-wrap align-items-end gap-2">
+          <div>
+            <label for="mesFiltro" class="form-label">Selecciona el mes:</label>
+            <select id="mesFiltro" class="form-select" style="max-width:150px;">
+              <option value="0">Enero</option>
+              <option value="1">Febrero</option>
+              <option value="2">Marzo</option>
+              <option value="3">Abril</option>
+              <option value="4">Mayo</option>
+              <option value="5">Junio</option>
+              <option value="6">Julio</option>
+              <option value="7">Agosto</option>
+              <option value="8">Septiembre</option>
+              <option value="9">Octubre</option>
+              <option value="10">Noviembre</option>
+              <option value="11">Diciembre</option>
+            </select>
+          </div>
+          <div>
+            <label for="anioFiltro" class="form-label">Año:</label>
+            <select id="anioFiltro" class="form-select" style="max-width:100px;">
+              <!-- Opciones de año se agregan por JS -->
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-outline-secondary mb-3" id="descargarTablaMes">Descargar tabla CSV</button>
+        <div id="stats-mes"></div>
+      </div>
+    </div>
+</div>
+<footer class="bg-dark text-light py-3 mt-5">
+  <div class="container d-flex flex-column flex-md-row align-items-center justify-content-between">
+    <div>
+      <img src="logo.png" alt="Logo" height="32">
+    </div>
+    <div class="text-center text-md-end mt-2 mt-md-0">
+      <small>
+        &copy; Sebastián Romero. Todos los derechos reservados. Licencia: <span class="text-info">Propietaria</span>
+      </small>
+    </div>
+  </div>
+</footer>
+<script src="main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Reutiliza la función getFechaDia del index para obtener solo la fecha (dd/mm/yyyy)
+function getFechaDia(fechaStr) {
+    // Devuelve solo la parte de la fecha (dd/mm/yyyy)
+    return fechaStr.split(',')[0].split(' ')[0];
+}
+
+// Utilidades para filtrar ventas
+function getVentasPorPeriodo(periodo, mesSeleccionado = null, anioSeleccionado = null) {
+    const ventas = DB.ventas.filter(v => !v.anulada);
+    const hoy = new Date();
+    if (periodo === 'dia') {
+        const fechaHoy = hoy.toLocaleDateString();
+        return ventas.filter(v => getFechaDia(v.fecha) === fechaHoy);
+    }
+    if (periodo === 'semana') {
+        // Semana ISO: lunes a domingo
+        const fechaHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        const diaSemana = fechaHoy.getDay() === 0 ? 7 : fechaHoy.getDay(); // domingo=7
+        const inicioSemana = new Date(fechaHoy);
+        inicioSemana.setDate(fechaHoy.getDate() - (diaSemana - 1));
+        const finSemana = new Date(inicioSemana);
+        finSemana.setDate(inicioSemana.getDate() + 6);
+        return ventas.filter(v => {
+            const fechaVenta = getFechaDia(v.fecha);
+            const [d, m, a] = fechaVenta.split('/');
+            const ventaDate = new Date(a, m - 1, d);
+            return ventaDate >= inicioSemana && ventaDate <= finSemana;
+        });
+    }
+    if (periodo === 'mes') {
+        const mes = mesSeleccionado !== null ? parseInt(mesSeleccionado) : hoy.getMonth();
+        const año = anioSeleccionado !== null ? parseInt(anioSeleccionado) : hoy.getFullYear();
+        return ventas.filter(v => {
+            const fechaVenta = getFechaDia(v.fecha);
+            const [d, m, a] = fechaVenta.split('/');
+            return (parseInt(m) - 1) === mes && parseInt(a) === año;
+        });
+    }
+    return [];
+}
+
+function getStats(ventas) {
+    let total = 0, tickets = [], productosVendidos = {};
+    ventas.forEach(v => {
+        total += v.total;
+        tickets.push(v.total);
+        // Corrige el split para productos
+        v.productos.split(',').forEach(prodStr => {
+            prodStr = prodStr.trim();
+            if (!prodStr) return;
+            const [nombre, cantStr] = prodStr.split(' x');
+            const cant = parseInt(cantStr);
+            if (nombre) productosVendidos[nombre] = (productosVendidos[nombre] || 0) + (isNaN(cant) ? 1 : cant);
+        });
+    });
+    const cantidadVentas = ventas.length;
+    const ticketPromedio = cantidadVentas ? (total / cantidadVentas) : 0;
+    // Producto más vendido
+    let masVendido = { nombre: '-', cantidad: 0 };
+    let menosVendido = { nombre: '-', cantidad: Infinity };
+    Object.entries(productosVendidos).forEach(([nombre, cantidad]) => {
+        if (cantidad > masVendido.cantidad) masVendido = { nombre, cantidad };
+        if (cantidad < menosVendido.cantidad) menosVendido = { nombre, cantidad };
+    });
+    if (menosVendido.cantidad === Infinity) menosVendido = { nombre: '-', cantidad: 0 };
+    return {
+        total,
+        cantidadVentas,
+        ticketPromedio,
+        masVendido,
+        menosVendido,
+        productosVendidos
+    };
+}
+
+function getGastosPorMes(mes, anio) {
+    return DB.gastos.filter(g => {
+        const fecha = new Date(g.fecha);
+        return fecha.getMonth() === parseInt(mes) && fecha.getFullYear() === parseInt(anio);
+    });
+}
+
+function getGastosPorPeriodo(periodo, mesSeleccionado = null, anioSeleccionado = null) {
+    const hoy = new Date();
+    if (periodo === 'dia') {
+        const fechaHoy = hoy.toLocaleDateString();
+        return DB.gastos.filter(g => {
+            const fecha = new Date(g.fecha);
+            return fecha.toLocaleDateString() === fechaHoy;
+        });
+    }
+    if (periodo === 'semana') {
+        const inicioSemana = new Date(hoy);
+        inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+        return DB.gastos.filter(g => {
+            const fecha = new Date(g.fecha);
+            return fecha >= inicioSemana && fecha <= hoy;
+        });
+    }
+    if (periodo === 'mes') {
+        const mes = mesSeleccionado !== null ? parseInt(mesSeleccionado) : hoy.getMonth();
+        const año = anioSeleccionado !== null ? parseInt(anioSeleccionado) : hoy.getFullYear();
+        return DB.gastos.filter(g => {
+            const fecha = new Date(g.fecha);
+            return fecha.getMonth() === mes && fecha.getFullYear() === año;
+        });
+    }
+    return [];
+}
+
+function getAniosFiltro() {
+    // Obtiene años de ventas y gastos
+    const años = new Set();
+    DB.ventas.forEach(v => {
+        const fechaVenta = new Date(v.fecha.split(',')[0]);
+        años.add(fechaVenta.getFullYear());
+    });
+    DB.gastos.forEach(g => {
+        const fechaGasto = new Date(g.fecha);
+        años.add(fechaGasto.getFullYear());
+    });
+    const añosArr = Array.from(años).sort((a, b) => b - a);
+    const añoActual = new Date().getFullYear();
+    if (!añosArr.includes(añoActual)) añosArr.unshift(añoActual);
+    return añosArr;
+}
+
+function initAniosFiltro() {
+    const select = document.getElementById('anioFiltro');
+    select.innerHTML = '';
+    getAniosFiltro().forEach(a => {
+        select.innerHTML += `<option value="${a}">${a}</option>`;
+    });
+}
+
+// Renderiza lista de gastos en el menú offcanvas
+function renderGastosOffcanvas() {
+    const ul = document.getElementById('gastosOffcanvas');
+    if (!ul) return;
+    ul.innerHTML = '';
+    if (!DB.gastos.length) {
+        ul.innerHTML = '<li class="list-group-item text-muted">No hay gastos registrados.</li>';
+        return;
+    }
+    DB.gastos.slice(-10).reverse().forEach((g, idx) => {
+        const realIdx = DB.gastos.length - 1 - idx;
+        ul.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>${g.fecha} - ${g.descripcion}: <strong>$${parseFloat(g.monto).toFixed(2)}</strong></span>
+            <button class="btn btn-sm btn-danger" onclick="eliminarGasto(${realIdx})">Eliminar</button>
+        </li>`;
+    });
+}
+
+function eliminarGasto(idx) {
+    DB.gastos.splice(idx, 1);
+    localStorage.setItem('gastos', JSON.stringify(DB.gastos));
+    renderGastosOffcanvas();
+    initAniosFiltro();
+    renderStats('mes', 'stats-mes', document.getElementById('mesFiltro').value, document.getElementById('anioFiltro').value);
+    renderBalanceChart('mes', document.getElementById('mesFiltro').value, document.getElementById('anioFiltro').value);
+}
+
+function getVentasPorModoPago(periodo, mesSeleccionado = null, anioSeleccionado = null) {
+    const ventas = getVentasPorPeriodo(periodo, mesSeleccionado, anioSeleccionado);
+    const resumen = { 'Efectivo': 0, 'Debito': 0, 'Credito': 0, 'Mercado Pago': 0 };
+    ventas.forEach(v => {
+        const key = (v.modoPago || '').trim();
+        if (resumen.hasOwnProperty(key)) {
+            resumen[key] += v.total;
+        }
+    });
+    return resumen;
+}
+
+function renderTablaVentasModoPago() {
+    // Día
+    const resumenDia = getVentasPorModoPago('dia');
+    document.getElementById('tablaVentasModoPago-dia').innerHTML = `
+        <table class="table table-bordered w-auto mx-auto">
+            <thead>
+                <tr>
+                    <th>Efectivo</th>
+                    <th>Débito</th>
+                    <th>Crédito</th>
+                    <th>Mercado Pago</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>$${resumenDia['Efectivo'].toFixed(2)}</td>
+                    <td>$${resumenDia['Debito'].toFixed(2)}</td>
+                    <td>$${resumenDia['Credito'].toFixed(2)}</td>
+                    <td>$${resumenDia['Mercado Pago'].toFixed(2)}</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+    // Semana
+    const resumenSemana = getVentasPorModoPago('semana');
+    document.getElementById('tablaVentasModoPago-semana').innerHTML = `
+        <table class="table table-bordered w-auto mx-auto">
+            <thead>
+                <tr>
+                    <th>Efectivo</th>
+                    <th>Débito</th>
+                    <th>Crédito</th>
+                    <th>Mercado Pago</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>$${resumenSemana['Efectivo'].toFixed(2)}</td>
+                    <td>$${resumenSemana['Debito'].toFixed(2)}</td>
+                    <td>$${resumenSemana['Credito'].toFixed(2)}</td>
+                    <td>$${resumenSemana['Mercado Pago'].toFixed(2)}</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+    // Mes
+    const mes = document.getElementById('mesFiltro').value;
+    const anio = document.getElementById('anioFiltro').value;
+    const resumenMes = getVentasPorModoPago('mes', mes, anio);
+    document.getElementById('tablaVentasModoPago-mes').innerHTML = `
+        <table class="table table-bordered w-auto mx-auto">
+            <thead>
+                <tr>
+                    <th>Efectivo</th>
+                    <th>Débito</th>
+                    <th>Crédito</th>
+                    <th>Mercado Pago</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>$${resumenMes['Efectivo'].toFixed(2)}</td>
+                    <td>$${resumenMes['Debito'].toFixed(2)}</td>
+                    <td>$${resumenMes['Credito'].toFixed(2)}</td>
+                    <td>$${resumenMes['Mercado Pago'].toFixed(2)}</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+}
+
+function renderStats(periodo, containerId, mesSeleccionado = null, anioSeleccionado = null) {
+    const ventas = getVentasPorPeriodo(periodo, mesSeleccionado, anioSeleccionado);
+    const stats = getStats(ventas);
+    const productosVendidosArr = Object.entries(stats.productosVendidos)
+        .sort((a,b) => b[1]-a[1]);
+    const productosVendidos = productosVendidosArr
+        .map(([nombre, cantidad]) => `<li>${nombre}: <strong>${cantidad}</strong></li>`).join('');
+    // Gastos solo para el mes
+    let gastosHtml = '';
+    let totalGastos = 0;
+    if (periodo === 'mes') {
+        const gastos = getGastosPorMes(mesSeleccionado, anioSeleccionado);
+        totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto), 0);
+        gastosHtml = `
+          <div class="card shadow rounded-4 mb-4">
+            <div class="card-body">
+              <h5 class="card-title">Gastos del mes</h5>
+              <ul>
+                ${gastos.length ? gastos.map(g => `<li>${g.fecha} - ${g.descripcion}: <strong>$${parseFloat(g.monto).toFixed(2)}</strong></li>`).join('') : '<li>No hay gastos registrados.</li>'}
+              </ul>
+              <div class="mt-2"><strong>Total Gastos: $${totalGastos.toFixed(2)}</strong></div>
+            </div>
+          </div>
+        `;
+    }
+    document.getElementById(containerId).innerHTML = `
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="card text-bg-primary mb-3 shadow rounded-4">
+            <div class="card-body text-center">
+              <h5 class="card-title">Ventas</h5>
+              <p class="card-text fs-3">${stats.cantidadVentas}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-success mb-3 shadow rounded-4">
+            <div class="card-body text-center">
+              <h5 class="card-title">Total Vendido</h5>
+              <p class="card-text fs-3">$${stats.total.toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-info mb-3 shadow rounded-4">
+            <div class="card-body text-center">
+              <h5 class="card-title">Ticket Promedio</h5>
+              <p class="card-text fs-3">$${stats.ticketPromedio.toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-warning mb-3 shadow rounded-4">
+            <div class="card-body text-center">
+              <h5 class="card-title">Balance</h5>
+              <p class="card-text fs-3">${stats.total >= 0 ? '🟢' : '🔴'} $${stats.total.toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card shadow rounded-4">
+            <div class="card-body">
+              <h5 class="card-title">Producto más vendido</h5>
+              <p class="card-text">${stats.masVendido.nombre} <span class="badge bg-success">${stats.masVendido.cantidad}</span></p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card shadow rounded-4">
+            <div class="card-body">
+              <h5 class="card-title">Producto menos vendido</h5>
+              <p class="card-text">${stats.menosVendido.nombre} <span class="badge bg-danger">${stats.menosVendido.cantidad}</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card shadow rounded-4 mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Detalle de productos vendidos</h5>
+          <ul id="productosVendidosTabla">
+            ${productosVendidos || '<li>No hay ventas en este periodo.</li>'}
+          </ul>
+        </div>
+      </div>
+      ${gastosHtml}
+    `;
+    // Guarda los datos para exportar
+    window._productosVendidosCSV = productosVendidosArr;
+    window._statsCSV = stats;
+    window._gastosCSV = periodo === 'mes' ? getGastosPorMes(mesSeleccionado, anioSeleccionado) : [];
+    window._totalGastosCSV = totalGastos;
+    if (containerId === 'stats-mes') {
+        renderTablaVentasModoPago();
+    }
+}
+
+// Gráfico de balance
+let balanceChart;
+function renderBalanceChart(periodo, mesSeleccionado = null, anioSeleccionado = null) {
+    let ingresos = 0, gastos = 0, label = '';
+    if (periodo === 'dia') {
+        label = 'Hoy';
+        ingresos = getStats(getVentasPorPeriodo('dia')).total;
+        gastos = getGastosPorPeriodo('dia').reduce((sum, g) => sum + parseFloat(g.monto), 0);
+    } else if (periodo === 'semana') {
+        label = 'Semana';
+        ingresos = getStats(getVentasPorPeriodo('semana')).total;
+        gastos = getGastosPorPeriodo('semana').reduce((sum, g) => sum + parseFloat(g.monto), 0);
+    } else if (periodo === 'mes') {
+        const mesTxt = document.getElementById('mesFiltro') ? document.getElementById('mesFiltro').selectedOptions[0].text : '';
+        label = `${mesTxt} ${anioSeleccionado || new Date().getFullYear()}`;
+        ingresos = getStats(getVentasPorPeriodo('mes', mesSeleccionado, anioSeleccionado)).total;
+        gastos = getGastosPorPeriodo('mes', mesSeleccionado, anioSeleccionado).reduce((sum, g) => sum + parseFloat(g.monto), 0);
+    }
+    const ctx = document.getElementById('balanceChart').getContext('2d');
+    if (balanceChart) balanceChart.destroy();
+    balanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [label],
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: [ingresos],
+                    backgroundColor: 'rgba(25, 135, 84, 0.7)'
+                },
+                {
+                    label: 'Gastos',
+                    data: [gastos],
+                    backgroundColor: 'rgba(220, 53, 69, 0.7)'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+function updateDashboard(periodo) {
+    if (periodo === 'dia') {
+        renderStats('dia', 'stats-dia');
+        renderBalanceChart('dia');
+        renderTablaVentasModoPago();
+    } else if (periodo === 'semana') {
+        renderStats('semana', 'stats-semana');
+        renderBalanceChart('semana');
+        renderTablaVentasModoPago();
+    } else if (periodo === 'mes') {
+        const mes = document.getElementById('mesFiltro').value;
+        const anio = document.getElementById('anioFiltro').value;
+        renderStats('mes', 'stats-mes', mes, anio);
+        renderBalanceChart('mes', mes, anio);
+        renderTablaVentasModoPago();
+    }
+}
+
+// Inicialización
+initAniosFiltro();
+document.getElementById('mesFiltro').value = new Date().getMonth();
+document.getElementById('anioFiltro').value = new Date().getFullYear();
+updateDashboard('dia');
+updateDashboard('semana');
+updateDashboard('mes');
+
+// Filtro de mes y año
+document.getElementById('mesFiltro').onchange = function() {
+    updateDashboard('mes');
+};
+document.getElementById('anioFiltro').onchange = function() {
+    updateDashboard('mes');
+};
+
+// Tabs: actualiza gráfico y tabla según el periodo
+document.getElementById('dashboardTabs').addEventListener('click', function(e) {
+    if (e.target.classList.contains('nav-link')) {
+        if (e.target.dataset.bsTarget === '#tab-dia') {
+            updateDashboard('dia');
+        } else if (e.target.dataset.bsTarget === '#tab-semana') {
+            updateDashboard('semana');
+        } else if (e.target.dataset.bsTarget === '#tab-mes') {
+            updateDashboard('mes');
+        }
+    }
+});
+
+function menuBuscarProducto() {
+  const val = document.getElementById('menuSearch').value;
+  // No hay productos en dashboard, pero puedes redirigir a index.html con búsqueda
+  window.location.href = `index.html?search=${encodeURIComponent(val)}`;
+}
+
+// Registrar gasto
+document.getElementById('formGasto').onsubmit = function(e) {
+    e.preventDefault();
+    const fecha = document.getElementById('gastoFecha').value;
+    const descripcion = document.getElementById('gastoDesc').value.trim();
+    const monto = parseFloat(document.getElementById('gastoMonto').value);
+    if (!fecha || !descripcion || isNaN(monto) || monto <= 0) return;
+    DB.gastos.push({ fecha, descripcion, monto });
+    localStorage.setItem('gastos', JSON.stringify(DB.gastos));
+    document.getElementById('formGasto').reset();
+    renderGastosOffcanvas();
+    initAniosFiltro();
+    renderStats('mes', 'stats-mes', document.getElementById('mesFiltro').value, document.getElementById('anioFiltro').value);
+    renderBalanceChart('mes', document.getElementById('mesFiltro').value, document.getElementById('anioFiltro').value);
+};
+
+// Registrar venta con fecha pasada
+document.getElementById('formVentaPasada').onsubmit = function(e) {
+    e.preventDefault();
+    const fecha = document.getElementById('ventaPasadaFecha').value;
+    const productos = document.getElementById('ventaPasadaProductos').value.trim();
+    const total = parseFloat(document.getElementById('ventaPasadaTotal').value);
+    const modoPago = document.getElementById('ventaPasadaModoPago').value;
+    let cuotas = '';
+    // Asegura que el select de cuotas esté accesible solo si está visible y habilitado
+    if (modoPago === 'Credito' && document.getElementById('ventaPasadaCuotasDiv').style.display !== 'none') {
+        cuotas = document.getElementById('ventaPasadaCuotas').value;
+    }
+    if (!fecha || !productos || isNaN(total) || total <= 0 || !modoPago) return;
+    DB.ventas.push({
+        fecha: new Date(fecha + ' 12:00').toLocaleString(),
+        productos,
+        total,
+        anulada: false,
+        modoPago,
+        tarjetaTipo: '',
+        cuotas
+    });
+    localStorage.setItem('ventas', JSON.stringify(DB.ventas));
+    document.getElementById('formVentaPasada').reset();
+    // Oculta el div de cuotas después de reset
+    document.getElementById('ventaPasadaCuotasDiv').style.display = 'none';
+    renderStats('dia', 'stats-dia');
+    renderStats('semana', 'stats-semana');
+    renderStats('mes', 'stats-mes', document.getElementById('mesFiltro').value, document.getElementById('anioFiltro').value);
+    renderBalanceChart('mes', document.getElementById('mesFiltro').value, document.getElementById('anioFiltro').value);
+    alert('Venta agregada correctamente.');
+};
+
+// Inicialización de datos desde localStorage para sincronizar con index.html
+(function cargarDatos() {
+    const productos = localStorage.getItem('productos');
+    const ventas = localStorage.getItem('ventas');
+    const gastos = localStorage.getItem('gastos');
+    if (productos) DB.productos = JSON.parse(productos);
+    if (ventas) DB.ventas = JSON.parse(ventas);
+    if (gastos) DB.gastos = JSON.parse(gastos);
+})();
+
+// Descargar tabla de productos vendidos en CSV
+document.getElementById('descargarTablaMes').onclick = function() {
+    const stats = window._statsCSV;
+    const productos = window._productosVendidosCSV || [];
+    const gastos = window._gastosCSV || [];
+    let csv = `Mes,${document.getElementById('mesFiltro').selectedOptions[0].text},Año,${document.getElementById('anioFiltro').value}\n`;
+    csv += `Ventas,${stats.cantidadVentas}\nTotal Vendido,${stats.total.toFixed(2)}\nTicket Promedio,${stats.ticketPromedio.toFixed(2)}\n`;
+    csv += `Producto más vendido,${stats.masVendido.nombre},${stats.masVendido.cantidad}\nProducto menos vendido,${stats.menosVendido.nombre},${stats.menosVendido.cantidad}\n`;
+    csv += `Total Gastos,${window._totalGastosCSV.toFixed(2)}\n`;
+    csv += `\nDetalle de productos vendidos:\nProducto,Cantidad\n`;
+    productos.forEach(([nombre, cantidad]) => {
+        csv += `"${nombre}",${cantidad}\n`;
+    });
+    csv += `\nDetalle de gastos:\nFecha,Descripción,Monto\n`;
+    gastos.forEach(g => {
+        csv += `"${g.fecha}","${g.descripcion}",${parseFloat(g.monto).toFixed(2)}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `estadisticas_mes_${document.getElementById('mesFiltro').value}_${document.getElementById('anioFiltro').value}.csv`;
+    a.click();
+};
+
+// Solución: usar addEventListener y asegurar que el DOM esté cargado
+document.addEventListener('DOMContentLoaded', function() {
+    var modoPago = document.getElementById('ventaPasadaModoPago');
+    var cuotasDiv = document.getElementById('ventaPasadaCuotasDiv');
+    if (modoPago && cuotasDiv) {
+        modoPago.addEventListener('change', function() {
+            if (this.value === 'Credito') {
+                cuotasDiv.style.display = '';
+            } else {
+                cuotasDiv.style.display = 'none';
+            }
+        });
+        // Inicializa oculto al cargar
+        cuotasDiv.style.display = (modoPago.value === 'Credito') ? '' : 'none';
+    }
+});
+</script>
+</body>
+</html>
