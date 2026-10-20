@@ -106,12 +106,3 @@ Este proyecto se distribuye bajo la licencia Apache License 2.0.
 ## Autor
 
 Proyecto personal en desarrollo para gestión de punto de venta para PyMEs.
-
----
-
-Si querés, el siguiente paso puede ser:
-- dejar una versión más premium del README
-- preparar una roadmap clara del proyecto
-- definir una stack final real
-- crear una estructura de proyecto más profesional
-- y dejar una versión mucho más “lista para mostrar” en GitHub
